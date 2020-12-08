@@ -29,6 +29,15 @@
                 "netcoreapp3.1"
             ],
             "group": "build"
+        },
+        {
+            "label": "run tests",
+            "command": "dotnet",
+            "type": "shell",
+            "args": [
+                "test"
+            ],
+            "group": "build"
         }
     ]
 }
