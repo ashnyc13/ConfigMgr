@@ -4,10 +4,9 @@ using Newtonsoft.Json;
 
 namespace ConsoleApp
 {
-    class ConditionaValue
+    public class Context
     {
-        public string When { get; set; }
-        public object Value { get; set; }
+        public int ContextProp1 { get; set; }
     }
 
     class Program
@@ -23,7 +22,7 @@ namespace ConsoleApp
             Console.WriteLine(config.GetDebugView());
 
             var appSettings = new AppSettings();
-            config.BindWithRules(appSettings, new { ContextProp1 = 12 });
+            config.BindWithRules(appSettings, new Context { ContextProp1 = 12 });
             Console.WriteLine(JsonConvert.SerializeObject(appSettings));
         }
     }

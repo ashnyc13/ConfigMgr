@@ -127,7 +127,8 @@ namespace ConsoleApp
 
         private static IConfiguration EvaluateRules(IConfiguration configuration, object context)
         {
-            return new RuleBasedConfiguration(configuration, context);
+            var evaluator = new RuleEvaluator();
+            return new RuleBasedConfiguration(configuration, context, evaluator);
         }
     }
 
@@ -135,11 +136,13 @@ namespace ConsoleApp
     {
         private readonly IConfiguration _internalConfig;
         private readonly object _context;
+        protected readonly RuleEvaluator _evaluator;
 
-        public RuleBasedConfiguration(IConfiguration internalConfig, object context)
+        public RuleBasedConfiguration(IConfiguration internalConfig, object context, RuleEvaluator evaluator)
         {
             _internalConfig = internalConfig;
             _context = context;
+            _evaluator = evaluator;
         }
 
         public string this[string key]
@@ -150,7 +153,7 @@ namespace ConsoleApp
 
         public IEnumerable<IConfigurationSection> GetChildren()
         {
-            return _internalConfig.GetChildren().Select(section => new RulesBasedConfigSection(section, _context));
+            return _internalConfig.GetChildren().Select(ProcessSection);
         }
 
         public IChangeToken GetReloadToken()
@@ -160,7 +163,47 @@ namespace ConsoleApp
 
         public IConfigurationSection GetSection(string key)
         {
-            return new RulesBasedConfigSection(_internalConfig.GetSection(key), _context);
+            return ProcessSection(_internalConfig.GetSection(key));
+        }
+
+        private IConfigurationSection ProcessSection(IConfigurationSection section)
+        {
+            // If this is a conditional values section then
+            // evalate the rules and return the value obtained from it
+            var sectionChildren = section.GetChildren();
+            var hasConditionalValues = sectionChildren.Any(child => child.Key == "__conditionalValues");
+            if (hasConditionalValues)
+            {
+                var value = EvaluateRules(section.GetSection("__conditionalValues"), _context);
+                section.Value = value;
+            }
+            return new RulesBasedConfigSection(section, _context, _evaluator);
+        }
+
+        private string EvaluateRules(IConfigurationSection section, object context)
+        {
+            // Get the conditions array from the section
+            var conditions = section.GetChildren().ToArray();
+
+            // Get the default condition (i.e. condition without a `when`)
+            var defaultCondition = conditions.FirstOrDefault(c => c.GetChildren().All(prop => prop.Key != "when"));
+
+            // Evaluate conditions one-by-one
+            foreach (var condition in conditions)
+            {
+                // Evaluate when using the context object
+                var when = condition.GetSection("when");
+                if (string.IsNullOrEmpty(when.Value)) continue;
+                if (!_evaluator.EvaluateRule(when.Value, _context)) continue;
+
+                // If evaluation is positive
+                var value = condition.GetSection("value");
+                return value.Value;
+            }
+
+            // If no conditions could be evaluated
+            // return the value from default condition
+            return defaultCondition?.GetSection("value")?.Value;
         }
     }
 
@@ -168,8 +211,8 @@ namespace ConsoleApp
     {
         private readonly IConfigurationSection _internalSection;
 
-        public RulesBasedConfigSection(IConfigurationSection internalSection, object context) :
-            base(internalSection, context)
+        public RulesBasedConfigSection(IConfigurationSection internalSection, object context, RuleEvaluator ruleEvaluator) :
+            base(internalSection, context, ruleEvaluator)
         {
             _internalSection = internalSection;
         }
