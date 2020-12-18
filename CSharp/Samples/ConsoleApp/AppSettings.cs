@@ -1,6 +1,6 @@
 namespace ConsoleApp
 {
-    class AppSettings
+    public class AppSettings
     {
         public string StringConfig { get; set; }
         public int IntConfig { get; set; }
