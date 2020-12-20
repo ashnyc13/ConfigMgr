@@ -6,10 +6,24 @@ using Microsoft.CodeAnalysis.Scripting;
 
 namespace ConsoleApp
 {
-    class RuleEvaluator
+    interface IRuleEvaluator
+    {
+        void AddRuleToCache(string rule, Type contextType);
+        bool EvaluateRule(string rule, object context);
+    }
+
+    class RuleEvaluator : IRuleEvaluator
     {
         private static readonly IDictionary<Tuple<string, Type>, ScriptRunner<bool>> _lambdaCache =
             new ConcurrentDictionary<Tuple<string, Type>, ScriptRunner<bool>>();
+
+        public void AddRuleToCache(string rule, Type contextType)
+        {
+            var cacheKey = CreateCacheKey(rule, contextType);
+            var script = CSharpScript.Create<bool>(rule, null, contextType);
+            var runner = script.CreateDelegate();
+            _lambdaCache[cacheKey] = runner;
+        }
 
         public bool EvaluateRule(string rule, object context)
         {
@@ -20,17 +34,19 @@ namespace ConsoleApp
 
             // Check if we have a cached lamda available
             var contextType = context.GetType();
-            var cacheKey = new Tuple<string, Type>(rule, contextType);
-            if (_lambdaCache.ContainsKey(cacheKey))
+            var cacheKey = CreateCacheKey(rule, contextType);
+            if (!_lambdaCache.ContainsKey(cacheKey))
             {
-                return ExecuteRuleScript(_lambdaCache[cacheKey], context);
+                // If not, compile a new lambda and cache it
+                AddRuleToCache(rule, contextType);
             }
 
-            // Otherwise compile a new lambda and cache it
-            var script = CSharpScript.Create<bool>(rule, null, contextType);
-            var runner = script.CreateDelegate();
-            _lambdaCache[cacheKey] = runner;
-            return ExecuteRuleScript(runner, context);
+            return ExecuteRuleScript(_lambdaCache[cacheKey], context);
+        }
+
+        private Tuple<string, Type> CreateCacheKey(string rule, Type contextType)
+        {
+            return new Tuple<string, Type>(rule, contextType);
         }
 
         private bool ExecuteRuleScript(ScriptRunner<bool> runner, object context)

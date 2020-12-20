@@ -17,11 +17,6 @@
 //         public override IEnumerable<string> GetChildKeys(IEnumerable<string> earlierKeys, string parentPath)
 //         {
 //             var childKeys = base.GetChildKeys(earlierKeys, parentPath);
-//             // if (childKeys.Any(ck => ck == "__conditionalValues"))
-//             // {
-//             //     Set(parentPath, "true");
-//             //     return new string[0];
-//             // }
 //             return childKeys;
 //         }
 

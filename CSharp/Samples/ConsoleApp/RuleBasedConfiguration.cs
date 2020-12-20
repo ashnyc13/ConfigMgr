@@ -10,9 +10,9 @@ namespace ConsoleApp
     {
         private readonly IConfiguration _internalConfig;
         private readonly object _context;
-        protected readonly RuleEvaluator _evaluator;
+        protected readonly IRuleEvaluator _evaluator;
 
-        public RuleBasedConfiguration(IConfiguration internalConfig, object context, RuleEvaluator evaluator)
+        public RuleBasedConfiguration(IConfiguration internalConfig, object context, IRuleEvaluator evaluator)
         {
             _internalConfig = internalConfig;
             _context = context;
@@ -85,7 +85,7 @@ namespace ConsoleApp
     {
         private readonly IConfigurationSection _internalSection;
 
-        public RulesBasedConfigSection(IConfigurationSection internalSection, object context, RuleEvaluator ruleEvaluator) :
+        public RulesBasedConfigSection(IConfigurationSection internalSection, object context, IRuleEvaluator ruleEvaluator) :
             base(internalSection, context, ruleEvaluator)
         {
             _internalSection = internalSection;
