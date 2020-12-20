@@ -50,7 +50,7 @@ namespace ConsoleApp
             var currentDir = AppDomain.CurrentDomain.BaseDirectory;
             var jsonFile = $"{currentDir}App_Config\\appSettings.json";
             var jObject = JsonConvert.DeserializeObject<JObject>(File.ReadAllText(jsonFile));
-            var jChildObj = jObject.SelectToken("BoolConfig.__conditionalValues[0]");
+            var jChildObj = jObject.SelectToken("BoolConfig._rules[0]");
             jChildObj["when"] = "ContextProp1 > 100";
             using (var streamWriter = File.CreateText(jsonFile))
             using (var writer = new JsonTextWriter(streamWriter))

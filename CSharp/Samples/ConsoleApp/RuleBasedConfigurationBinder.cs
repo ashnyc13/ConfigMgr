@@ -171,10 +171,10 @@ namespace ConsoleApp
             // If this is a conditional values section then
             // evalate the rules and return the value obtained from it
             var sectionChildren = section.GetChildren();
-            var hasConditionalValues = sectionChildren.Any(child => child.Key == "__conditionalValues");
+            var hasConditionalValues = sectionChildren.Any(child => child.Key == "_rules");
             if (hasConditionalValues)
             {
-                var value = EvaluateRules(section.GetSection("__conditionalValues"), _context);
+                var value = EvaluateRules(section.GetSection("_rules"), _context);
                 section.Value = value;
             }
             return new RulesBasedConfigSection(section, _context, _evaluator);
