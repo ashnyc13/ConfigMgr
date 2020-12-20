@@ -24,19 +24,18 @@ namespace ConsoleApp
             var builder = new ConfigurationBuilder()
                  .AddJsonFile($"App_Config\\appSettings.json", false, true)
                  .AddJsonFile($"App_Config\\appSettings.{env}.json", false, true);
-            var config = builder.Build();
+            IConfiguration config = builder.Build();
 
             // Create config with rules embedded
-            var evaluator = new RuleEvaluator();
             var context = new Context { ContextProp1 = 12 };
-            var configWithRuleEvaluation =
-                 new RuleBasedConfiguration(config, context, evaluator);
+            config = config.ExtendWithRules(context);
+            var evaluator = new RuleEvaluator();
 
             // Register services and configuration in IOC
             var hostBuilder = Host.CreateDefaultBuilder();
             hostBuilder.ConfigureServices(sc =>
                 {
-                    sc.Configure<AppSettings>(configWithRuleEvaluation);
+                    sc.Configure<AppSettings>(config);
                     sc.AddTransient<IGreetingService, GreetingService>();
                 });
             var host = hostBuilder.Build();
