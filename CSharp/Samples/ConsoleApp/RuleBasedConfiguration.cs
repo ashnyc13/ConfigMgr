@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
@@ -9,14 +8,15 @@ namespace ConsoleApp
     class RuleBasedConfiguration : IConfiguration
     {
         private readonly IConfiguration _internalConfig;
-        private readonly object _context;
+        private readonly IContextProvider _contextProvider;
         protected readonly IRuleEvaluator _evaluator;
 
-        public RuleBasedConfiguration(IConfiguration internalConfig, object context, IRuleEvaluator evaluator)
+        public RuleBasedConfiguration(IConfiguration internalConfig,
+            IContextProvider contextProvider, IRuleEvaluator evaluator)
         {
-            _internalConfig = internalConfig;
-            _context = context;
-            _evaluator = evaluator;
+            _internalConfig = internalConfig ?? throw new System.ArgumentNullException(nameof(internalConfig));
+            _contextProvider = contextProvider ?? throw new System.ArgumentNullException(nameof(contextProvider));
+            _evaluator = evaluator ?? throw new System.ArgumentNullException(nameof(evaluator));
         }
 
         public string this[string key]
@@ -48,10 +48,11 @@ namespace ConsoleApp
             var hasConditionalValues = sectionChildren.Any(child => child.Key == "_rules");
             if (hasConditionalValues)
             {
-                var value = EvaluateRules(section.GetSection("_rules"), _context);
+                var value = EvaluateRules(section.GetSection("_rules"),
+                    _contextProvider.GetContext());
                 section.Value = value;
             }
-            return new RulesBasedConfigSection(section, _context, _evaluator);
+            return new RulesBasedConfigSection(section, _contextProvider, _evaluator);
         }
 
         private string EvaluateRules(IConfigurationSection section, object context)
@@ -60,7 +61,8 @@ namespace ConsoleApp
             var conditions = section.GetChildren().ToArray();
 
             // Get the default condition (i.e. condition without a `when`)
-            var defaultCondition = conditions.FirstOrDefault(c => c.GetChildren().All(prop => prop.Key != "when"));
+            var defaultCondition = conditions.FirstOrDefault(c =>
+                c.GetChildren().All(prop => prop.Key != "when"));
 
             // Evaluate conditions one-by-one
             foreach (var condition in conditions)
@@ -68,7 +70,7 @@ namespace ConsoleApp
                 // Evaluate when using the context object
                 var when = condition.GetSection("when");
                 if (string.IsNullOrEmpty(when.Value)) continue;
-                if (!_evaluator.EvaluateRule(when.Value, _context)) continue;
+                if (!_evaluator.EvaluateRule(when.Value, _contextProvider.GetContext())) continue;
 
                 // If evaluation is positive
                 var value = condition.GetSection("value");
@@ -85,8 +87,9 @@ namespace ConsoleApp
     {
         private readonly IConfigurationSection _internalSection;
 
-        public RulesBasedConfigSection(IConfigurationSection internalSection, object context, IRuleEvaluator ruleEvaluator) :
-            base(internalSection, context, ruleEvaluator)
+        public RulesBasedConfigSection(IConfigurationSection internalSection,
+            IContextProvider contextProvider, IRuleEvaluator ruleEvaluator) :
+            base(internalSection, contextProvider, ruleEvaluator)
         {
             _internalSection = internalSection;
         }

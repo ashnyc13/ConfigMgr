@@ -15,27 +15,30 @@ namespace ConsoleApp
         public int ContextProp1 { get; set; }
     }
 
+    public class ContextProvider : IContextProvider
+    {
+        public object GetContext()
+        {
+            return new Context { ContextProp1 = 12 };
+        }
+    }
+
     class Program
     {
         static void Main(string[] args)
         {
             // Craete config
-            var env = "QA";
             var builder = new ConfigurationBuilder()
-                 .AddJsonFile($"App_Config\\appSettings.json", false, true)
-                 .AddJsonFile($"App_Config\\appSettings.{env}.json", false, true);
+                 .AddJsonFile("App_Config\\appSettings.json", false, true)
+                 .AddJsonFile("App_Config\\appSettings.QA.json", false, true);
             IConfiguration config = builder.Build();
-
-            // Create config with rules embedded
-            var context = new Context { ContextProp1 = 12 };
-            config = config.ExtendWithRules(context);
-            var evaluator = new RuleEvaluator();
 
             // Register services and configuration in IOC
             var hostBuilder = Host.CreateDefaultBuilder();
             hostBuilder.ConfigureServices(sc =>
                 {
-                    sc.Configure<AppSettings>(config);
+                    sc.AddTransient<IContextProvider, ContextProvider>();
+                    sc.ConfigureWithRules<AppSettings>(config);
                     sc.AddTransient<IGreetingService, GreetingService>();
                 });
             var host = hostBuilder.Build();
