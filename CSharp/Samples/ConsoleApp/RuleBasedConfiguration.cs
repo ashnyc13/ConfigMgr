@@ -57,29 +57,20 @@ namespace ConsoleApp
 
         private string EvaluateRules(IConfigurationSection section, object context)
         {
-            // Get the conditions array from the section
-            var conditions = section.GetChildren().ToArray();
+            var rules = section.GetChildren().Select(CreateRule);
+            return _evaluator.EvaluateRules(rules, context);
+        }
 
-            // Get the default condition (i.e. condition without a `when`)
-            var defaultCondition = conditions.FirstOrDefault(c =>
-                c.GetChildren().All(prop => prop.Key != "when"));
-
-            // Evaluate conditions one-by-one
-            foreach (var condition in conditions)
+        private Rule CreateRule(IConfigurationSection configSection)
+        {
+            // Get when and value
+            var when = configSection.GetSection("when");
+            var value = configSection.GetSection("value");
+            return new Rule
             {
-                // Evaluate when using the context object
-                var when = condition.GetSection("when");
-                if (string.IsNullOrEmpty(when.Value)) continue;
-                if (!_evaluator.EvaluateRule(when.Value, _contextProvider.GetContext())) continue;
-
-                // If evaluation is positive
-                var value = condition.GetSection("value");
-                return value.Value;
-            }
-
-            // If no conditions could be evaluated
-            // return the value from default condition
-            return defaultCondition?.GetSection("value")?.Value;
+                When = when.Value,
+                Value = value.Value
+            };
         }
     }
 

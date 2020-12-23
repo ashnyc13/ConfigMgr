@@ -6,10 +6,12 @@ using Microsoft.CodeAnalysis.Scripting;
 
 namespace ConsoleApp
 {
+
     interface IRuleEvaluator
     {
-        void AddRuleToCache(string rule, Type contextType);
-        bool EvaluateRule(string rule, object context);
+        void AddRuleToCache(Rule rule, Type contextType);
+        bool EvaluateRule(Rule rule, object context);
+        string EvaluateRules(IEnumerable<Rule> rules, object context);
     }
 
     class RuleEvaluator : IRuleEvaluator
@@ -17,24 +19,40 @@ namespace ConsoleApp
         private static readonly IDictionary<Tuple<string, Type>, ScriptRunner<bool>> _lambdaCache =
             new ConcurrentDictionary<Tuple<string, Type>, ScriptRunner<bool>>();
 
-        public void AddRuleToCache(string rule, Type contextType)
+        public void AddRuleToCache(Rule rule, Type contextType)
         {
-            var cacheKey = CreateCacheKey(rule, contextType);
-            var script = CSharpScript.Create<bool>(rule, null, contextType);
+            if (rule is null)
+            {
+                throw new ArgumentNullException(nameof(rule));
+            }
+
+            if (contextType is null)
+            {
+                throw new ArgumentNullException(nameof(contextType));
+            }
+
+            if (rule.IsDefault) return;
+
+            var cacheKey = CreateCacheKey(rule.When, contextType);
+            var script = CSharpScript.Create<bool>(rule.When, null, contextType);
             var runner = script.CreateDelegate();
             _lambdaCache[cacheKey] = runner;
         }
 
-        public bool EvaluateRule(string rule, object context)
+        public bool EvaluateRule(Rule rule, object context)
         {
-            if (string.IsNullOrEmpty(rule))
-                throw new System.ArgumentException($"'{nameof(rule)}' cannot be null or empty", nameof(rule));
+            if (rule is null)
+                throw new ArgumentNullException(nameof(rule));
+
             if (context is null)
-                throw new System.ArgumentNullException(nameof(context));
+                throw new ArgumentNullException(nameof(context));
+
+            if (rule.IsDefault)
+                throw new ArgumentException("Default rules cannot be executed.", nameof(rule));
 
             // Check if we have a cached lamda available
             var contextType = context.GetType();
-            var cacheKey = CreateCacheKey(rule, contextType);
+            var cacheKey = CreateCacheKey(rule.When, contextType);
             if (!_lambdaCache.ContainsKey(cacheKey))
             {
                 // If not, compile a new lambda and cache it
@@ -42,6 +60,25 @@ namespace ConsoleApp
             }
 
             return ExecuteRuleScript(_lambdaCache[cacheKey], context);
+        }
+
+        public string EvaluateRules(IEnumerable<Rule> rules, object context)
+        {
+            // Go through each rule and evaluate it
+            Rule defaultRule = null;
+            foreach (var rule in rules)
+            {
+                if (rule.IsDefault)
+                {
+                    defaultRule = rule;
+                    continue;
+                }
+
+                var ruleResult = EvaluateRule(rule, context);
+                if (ruleResult) return rule.Value;
+            }
+
+            return defaultRule?.Value;
         }
 
         private Tuple<string, Type> CreateCacheKey(string rule, Type contextType)
